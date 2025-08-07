@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>住房问答助手</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <!-- 添加 Markdown-it 库用于渲染 Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@12/dist/markdown-it.min.js"></script>
+  <style>
+    body { max-width:600px; margin:40px auto; font-family:sans-serif; background:#f8f9fa; }
+    textarea { width:100%; font-size:16px; }
+    button { padding:8px 24px; font-size:16px; margin-top:8px; }
+    .answer { background:#e4f8ea; padding:14px; border-radius:5px; margin-top:12px; }
+    .local { background:#f6f6fa; margin:16px 0; padding:12px; border-radius:4px; }
+    
+    /* 添加表格样式 */
+    table { width:100%; border-collapse:collapse; margin:10px 0; }
+    th, td { padding:8px; text-align:left; border-bottom:1px solid #ddd; }
+    th { background-color:#f2f2f2; }
+    tr:hover { background-color:#f5f5f5; }
+    
+    /* 响应式表格 */
+    @media screen and (max-width: 600px) {
+      table { display:block; overflow-x:auto; }
+    }
+  </style>
+</head>
+<body>
+  <h2>住房问答助手</h2>
+  <form id="askForm">
+    <textarea id="question" rows="4" placeholder="请输入您的住房相关问题..."></textarea>
+    <button type="submit" id="askBtn">提问</button>
+  </form>
+  <div id="localData"></div>
+  <div id="answer"></div>
+  <script>
+    // 初始化 markdown-it
+    const md = window.markdownit();
+    
+    const form = document.getElementById('askForm');
+    const questionInput = document.getElementById('question');
+    const answerDiv = document.getElementById('answer');
+    const localDiv = document.getElementById('localData');
+    const askBtn = document.getElementById('askBtn');
+    
+    form.onsubmit = async function(e) {
+      e.preventDefault();
+      const question = questionInput.value.trim();
+      if (!question) return;
+      answerDiv.textContent = '';
+      localDiv.textContent = '';
+      askBtn.disabled = true;
+      askBtn.textContent = '正在回答...';
+      try {
+        const res = await fetch('http://localhost:5000/api/ask', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({question})
+        });
+        const data = await res.json();
+        console.log("API响应:", data); // 添加日志
+        
+        if (data.localData) {
+          // 使用 markdown-it 渲染 Markdown 表格
+          const renderedLocalData = md.render(data.localData);
+          localDiv.innerHTML = `<div class="local"><strong>本地知识库：</strong><div>${renderedLocalData}</div></div>`;
+        }
+        
+        if (data.answer) {
+          // 渲染 AI 回答中的 Markdown
+          const renderedAnswer = md.render(data.answer);
+          answerDiv.innerHTML = `<div class="answer"><strong>AI回答：</strong><div style="margin-top:8px;">${renderedAnswer}</div></div>`;
+        } else {
+          answerDiv.textContent = '回答失败。';
+        }
+      } catch (err) {
+        console.error("错误详情:", err); // 添加错误详情
+        answerDiv.textContent = '出错了，请稍后重试。';
+      }
+      askBtn.disabled = false;
+      askBtn.textContent = '提问';
+    }
+  </script>
+</body>
+</html>
